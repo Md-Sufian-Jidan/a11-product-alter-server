@@ -1,9 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express();
-const port = process.env.PORT || 7000;
+const port = process.env.PORT || 9000;
 
 //middleware
 app.use(cors());
@@ -26,9 +26,32 @@ async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
         // await client.connect();
-        const collection = client.db('coll').collection('ser');
-
-
+        const productCollection = client.db('ProductQueries').collection('Queries');
+        // get all queries api 
+        app.get('/queries', async (req, res) => {
+            const result = await productCollection.find().toArray();
+            res.send(result);
+        });
+        // get single queries api
+        app.get('/single-queries/:id', async (req, res) => {
+            const user = req.params.id;
+            const id = { _id: new ObjectId(user) };
+            const result = await productCollection.findOne(id);
+            res.send(result);
+        });
+        // save a product in db
+        app.post('/add-product', async (req, res) => {
+            const product = req.body;
+            const result = await productCollection.insertOne(product);
+            res.send(result)
+        });
+        // my added product see api 
+        app.get('/my-queries/:email', async (req, res) => {
+            const email = req.params.email;
+            const query = { email: new ObjectId(email) }
+            const result = await productCollection.find(query).toArray()
+            res.send(result)
+        })
 
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
