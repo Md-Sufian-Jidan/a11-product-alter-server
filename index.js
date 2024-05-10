@@ -65,7 +65,7 @@ async function run() {
             res.send(result)
         });
         //product update api created
-        app.update('/update/:id', async (req, res) => {
+        app.put('/update/:id', async (req, res) => {
             const product = req.body;
             const id = req.params.id;
             const query = { _id: new ObjectId(id) };
@@ -74,7 +74,7 @@ async function run() {
             };
             const options = { upsert: true };
             const result = await productCollection.updateOne(query, updatedDoc, options);
-            res.send(result)
+            res.send(result);
         })
 
         // Send a ping to confirm a successful connection
