@@ -6,7 +6,12 @@ const app = express();
 const port = process.env.PORT || 9000;
 
 //middleware
-app.use(cors());
+const corsOptions = {
+    origin: ["http://localhost:5173"],
+    credentials: true,
+    optionSuccessStatus: 200
+}
+app.use(cors(corsOptions));
 app.use(express.json());
 
 //============
@@ -48,8 +53,27 @@ async function run() {
         // my added product see api 
         app.get('/my-queries/:email', async (req, res) => {
             const email = req.params.email;
-            const query = { email: new ObjectId(email) }
+            const query = { 'addUser.email': email }
             const result = await productCollection.find(query).toArray()
+            res.send(result)
+        });
+        // product delete api created 
+        app.delete('/deleted/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const result = await productCollection.deleteOne(query);
+            res.send(result)
+        });
+        //product update api created
+        app.update('/update/:id', async (req, res) => {
+            const product = req.body;
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const updatedDoc = {
+                $set: product
+            };
+            const options = { upsert: true };
+            const result = await productCollection.updateOne(query, updatedDoc, options);
             res.send(result)
         })
 
