@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const cookieParser = require('cookie-parser')
 const app = express();
 const port = process.env.PORT || 9000;
 
@@ -13,6 +14,7 @@ const corsOptions = {
 }
 app.use(cors(corsOptions));
 app.use(express.json());
+app.use(cookieParser())
 
 //============
 
@@ -33,6 +35,21 @@ async function run() {
         // await client.connect();
         const productCollection = client.db('ProductQueries').collection('Queries');
         const recommendationCollection = client.db('ProductQueries').collection('recommendation');
+
+        // jwt generator
+        app.post('/jwt', async (req, res) => {
+            const email = req?.body;
+            // console.log('dynamic token for this user --->', email);
+            const token = jwt.sign(email, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '7d' });
+            // console.log(token);
+            res.cookie('token', token, {
+                httpOnly: true,
+                secure: true,
+                sameSite: 'none'
+            })
+                .send({ success: true })
+        });
+
         // get all queries api 
         app.get('/queries', async (req, res) => {
             const result = await productCollection.find().toArray();
@@ -81,7 +98,7 @@ async function run() {
         app.post('/recommendation', async (req, res) => {
             const recommendation = req.body;
             const query = { _id: new ObjectId(recommendation.query_id) }
-            console.log(recommendation);
+            // console.log(recommendation);
             const result = await recommendationCollection.insertOne(recommendation);
             const updateQuery = await productCollection.updateOne(query, { $inc: { recommendationCount: 1 } })
             res.send(result);
@@ -89,9 +106,28 @@ async function run() {
         //get all the matching recommendation by query id
         app.get('/some-recommendation/:id', async (req, res) => {
             const id = req.params.id;
-            console.log(id);
+            // console.log(id);
             const query = { query_id: id };
             const result = await recommendationCollection.find(query).toArray();
+            res.send(result);
+        });
+        // all recommendation made ny me
+        app.get('/all-recommendation/:email', async (req, res) => {
+            const email = req.params.email;
+            const query = { recommendation_email: email }
+            const result = await recommendationCollection.find(query).toArray();
+            res.send(result);
+        });
+        //delete a single recommendation by _id
+        app.delete('/recommendation-delete/:id', async (req, res) => {
+            const id = req.params.id.split('&');
+            console.log(id[0]);
+            console.log(id[1]);
+            const query = { _id: new ObjectId(id[0]) };
+            const update = { _id: new ObjectId(id[1]) }
+            console.log(update);
+            const result = await recommendationCollection.deleteOne(query);
+            const updateQuery = await productCollection.updateOne(update, { $inc: { recommendationCount: -1 } })
             res.send(result);
         })
         // Send a ping to confirm a successful connection
