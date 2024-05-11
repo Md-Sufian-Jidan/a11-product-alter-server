@@ -32,6 +32,7 @@ async function run() {
         // Connect the client to the server	(optional starting in v4.7)
         // await client.connect();
         const productCollection = client.db('ProductQueries').collection('Queries');
+        const recommendationCollection = client.db('ProductQueries').collection('recommendation');
         // get all queries api 
         app.get('/queries', async (req, res) => {
             const result = await productCollection.find().toArray();
@@ -75,8 +76,24 @@ async function run() {
             const options = { upsert: true };
             const result = await productCollection.updateOne(query, updatedDoc, options);
             res.send(result);
+        });
+        //product recommendation api
+        app.post('/recommendation', async (req, res) => {
+            const recommendation = req.body;
+            const query = { _id: new ObjectId(recommendation.query_id) }
+            console.log(recommendation);
+            const result = await recommendationCollection.insertOne(recommendation);
+            const updateQuery = await productCollection.updateOne(query, { $inc: { recommendationCount: 1 } })
+            res.send(result);
+        });
+        //get all the matching recommendation by query id
+        app.get('/some-recommendation/:id', async (req, res) => {
+            const id = req.params.id;
+            console.log(id);
+            const query = { query_id: id };
+            const result = await recommendationCollection.find(query).toArray();
+            res.send(result);
         })
-
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
