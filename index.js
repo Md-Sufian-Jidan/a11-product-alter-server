@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser')
 const app = express();
 const port = process.env.PORT || 9000;
@@ -15,6 +16,32 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser())
+
+// middlewares
+// const logger = (req, res, next) => {
+//     console.log('method', req.method, 'url', req.url);
+//     next();
+// };
+const verifyToken = (req, res, next) => {
+    const token = req?.cookies?.token;
+    // console.log('token in the middleware', token);
+    if (!token) {
+        return res.status(401).send({ message: 'unauthorized access' });
+    }
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+        if (err) {
+            return res.status(403).send({ message: 'unauthorized access' })
+        }
+        req.user = decoded;
+        next();
+    });
+};
+
+const cookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production" ? true : false,
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+}
 
 //============
 
@@ -49,6 +76,15 @@ async function run() {
             })
                 .send({ success: true })
         });
+        // remove jwt token after logout
+        app.post('/logout', async (req, res) => {
+            const user = req.body;
+            console.log('logging user', user);
+            // maxAge = 0 means expire the token
+            res.clearCookie('token', { ...cookieOptions, maxAge: 0 })
+                .send({ success: true })
+        })
+
 
         // get all queries api 
         app.get('/queries', async (req, res) => {
@@ -56,34 +92,34 @@ async function run() {
             res.send(result);
         });
         // get single queries api
-        app.get('/single-queries/:id', async (req, res) => {
+        app.get('/single-queries/:id', verifyToken, async (req, res) => {
             const user = req.params.id;
             const id = { _id: new ObjectId(user) };
             const result = await productCollection.findOne(id);
             res.send(result);
         });
         // save a product in db
-        app.post('/add-product', async (req, res) => {
+        app.post('/add-product', verifyToken, async (req, res) => {
             const product = req.body;
             const result = await productCollection.insertOne(product);
             res.send(result)
         });
         // my added product see api 
-        app.get('/my-queries/:email', async (req, res) => {
+        app.get('/my-queries/:email', verifyToken, async (req, res) => {
             const email = req.params.email;
             const query = { 'addUser.email': email }
             const result = await productCollection.find(query).toArray()
             res.send(result)
         });
         // product delete api created 
-        app.delete('/deleted/:id', async (req, res) => {
+        app.delete('/deleted/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) };
             const result = await productCollection.deleteOne(query);
             res.send(result)
         });
         //product update api created
-        app.put('/update/:id', async (req, res) => {
+        app.put('/update/:id', verifyToken, async (req, res) => {
             const product = req.body;
             const id = req.params.id;
             const query = { _id: new ObjectId(id) };
@@ -95,7 +131,7 @@ async function run() {
             res.send(result);
         });
         //product recommendation api
-        app.post('/recommendation', async (req, res) => {
+        app.post('/recommendation', verifyToken, async (req, res) => {
             const recommendation = req.body;
             const query = { _id: new ObjectId(recommendation.query_id) }
             // console.log(recommendation);
@@ -104,7 +140,7 @@ async function run() {
             res.send(result);
         });
         //get all the matching recommendation by query id
-        app.get('/some-recommendation/:id', async (req, res) => {
+        app.get('/some-recommendation/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             // console.log(id);
             const query = { query_id: id };
@@ -112,14 +148,14 @@ async function run() {
             res.send(result);
         });
         // all recommendation made ny me
-        app.get('/all-recommendation/:email', async (req, res) => {
+        app.get('/all-recommendation/:email', verifyToken, async (req, res) => {
             const email = req.params.email;
             const query = { recommendation_email: email }
             const result = await recommendationCollection.find(query).toArray();
             res.send(result);
         });
         //delete a single recommendation by _id
-        app.delete('/recommendation-delete/:id', async (req, res) => {
+        app.delete('/recommendation-delete/:id', verifyToken, async (req, res) => {
             const id = req.params.id.split('&');
             console.log(id[0]);
             console.log(id[1]);
@@ -131,7 +167,7 @@ async function run() {
             res.send(result);
         });
         //recommendation for me made by others
-        app.get('/recommendation-for-myself/:email', async (req, res) => {
+        app.get('/recommendation-for-myself/:email', verifyToken, async (req, res) => {
             const email = req.params.email;
             const query = { 'posted_query.query_email': email };
             // const query = { recommendation_email: email };
