@@ -9,7 +9,7 @@ const port = process.env.PORT || 9000;
 
 //middleware
 const corsOptions = {
-    origin: ["http://localhost:5173"],
+    origin: ["http://localhost:5173", "https://product-alter.surge.sh"],
     credentials: true,
     optionSuccessStatus: 200
 }
@@ -22,10 +22,12 @@ app.use(cookieParser())
 //     console.log('method', req.method, 'url', req.url);
 //     next();
 // };
+
 const verifyToken = (req, res, next) => {
     const token = req?.cookies?.token;
     // console.log('token in the middleware', token);
     if (!token) {
+        console.log(token);
         return res.status(401).send({ message: 'unauthorized access' });
     }
     jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
@@ -88,11 +90,17 @@ async function run() {
 
         // get all queries api 
         app.get('/queries', async (req, res) => {
-            const result = await productCollection.find().toArray();
+            const search = req.query.search || "";
+            let query = {
+                productName: {
+                    $regex: search, $options: 'i'
+                }
+            }
+            const result = await productCollection.find(query).toArray();
             res.send(result);
         });
         // get single queries api
-        app.get('/single-queries/:id', verifyToken, async (req, res) => {
+        app.get('/single-queries/:id', async (req, res) => {
             const user = req.params.id;
             const id = { _id: new ObjectId(user) };
             const result = await productCollection.findOne(id);
@@ -140,7 +148,7 @@ async function run() {
             res.send(result);
         });
         //get all the matching recommendation by query id
-        app.get('/some-recommendation/:id', verifyToken, async (req, res) => {
+        app.get('/some-recommendation/:id', async (req, res) => {
             const id = req.params.id;
             // console.log(id);
             const query = { query_id: id };
