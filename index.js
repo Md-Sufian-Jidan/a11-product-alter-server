@@ -129,6 +129,14 @@ async function run() {
             const result = await recommendationCollection.deleteOne(query);
             const updateQuery = await productCollection.updateOne(update, { $inc: { recommendationCount: -1 } })
             res.send(result);
+        });
+        //recommendation for me made by others
+        app.get('/recommendation-for-myself/:email', async (req, res) => {
+            const email = req.params.email;
+            const query = { 'posted_query.query_email': email };
+            // const query = { recommendation_email: email };
+            const result = await recommendationCollection.find(query).toArray();
+            res.send(result)
         })
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
